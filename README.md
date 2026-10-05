@@ -11,6 +11,17 @@ A single-page AI music generator built on the [Suno API](https://docs.sunoapi.or
 - **Extend**: continue any finished track from a chosen timestamp.
 - **Credits** balance in the header.
 
+## Login (Supabase email auth)
+The app is behind a Supabase email + password login: sign up, email confirmation, sign in, forgot/reset password, and sign out.
+Each user's API key and library are stored separately in the browser, keyed by their Supabase user ID.
+
+Setup (one time):
+1. In the Supabase dashboard, restore the project `tijxtnmrdguholjnyglp` if it's paused.
+2. Go to **Project Settings → API Keys**, copy the **publishable** key (`sb_publishable_…`), and paste it into
+   `SUPABASE_KEY` near the bottom of `index.html`. This key is meant to be public.
+3. Go to **Authentication → URL Configuration**, set **Site URL** to your Netlify URL, and add it under **Redirect URLs**.
+   This makes confirmation and reset emails link back to the app.
+
 ## API key
 Each user clicks **Add API key** and pastes their own key from <https://sunoapi.org/api-key>.
 The app checks the key against the credits endpoint, keeps it only in that browser's `localStorage`,

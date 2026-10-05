@@ -162,10 +162,50 @@ dialog form { padding: 20px; }
 dialog .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 dialog .dlg-actions .btn.primary { width: auto; padding: 9px 16px; font-size: 14px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; z-index: 100; box-shadow: var(--shadow); max-width: calc(100vw - 32px); }
+/* Auth */
+body.signed-out header.top, body.signed-out main, body.signed-out footer { display: none; }
+body:not(.signed-out) #authScreen { display: none; }
+#authScreen { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+.auth-card { width: min(400px, 100%); padding: 28px 24px; }
+.auth-card .brand { justify-content: center; margin-bottom: 18px; font-size: 20px; }
+.auth-card h2 { text-align: center; }
+.auth-card .sub { text-align: center; }
+.auth-card .btn.primary { margin-top: 4px; }
+.auth-links { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; font-size: 13px; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-weight: 500; }
+.alert.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); background: color-mix(in srgb, var(--ok) 8%, transparent); }
+.user-email { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) { .user-email { display: none; } }
 footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16px 32px; }
 </style>
 </head>
-<body>
+<body class="signed-out">
+
+<!-- Sign-in screen (Supabase email auth) -->
+<section id="authScreen">
+  <div class="card auth-card">
+    <div class="brand"><span class="brand-mark">♪</span> Suno Studio</div>
+    <h2 id="authTitle">Sign in</h2>
+    <p class="sub" id="authSub">Welcome back — sign in to make music.</p>
+    <form id="authForm" novalidate>
+      <div class="field" id="authEmailField">
+        <label for="authEmail">Email</label>
+        <input type="text" inputmode="email" id="authEmail" autocomplete="email" placeholder="you@example.com">
+      </div>
+      <div class="field" id="authPassField">
+        <label for="authPass">Password</label>
+        <input type="password" id="authPass" autocomplete="current-password" placeholder="At least 6 characters">
+      </div>
+      <div class="alert err hidden" id="authError" role="alert"></div>
+      <div class="alert ok hidden" id="authOk" role="status"></div>
+      <button class="btn primary" type="submit" id="authSubmit">Sign in</button>
+    </form>
+    <div class="auth-links">
+      <button class="linkbtn" type="button" id="authSwitch">Create an account</button>
+      <button class="linkbtn" type="button" id="authForgot">Forgot password?</button>
+    </div>
+  </div>
+</section>
 
 <header class="top">
   <div class="wrap">
@@ -175,6 +215,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
       <span class="dot" id="creditsDot"></span><span id="creditsText">Credits —</span>
     </button>
     <button class="pill" id="keyBtn">🔑 <span id="keyBtnText">Add API key</span></button>
+    <button class="pill" id="signOutBtn" title="Sign out"><span class="user-email" id="userEmail"></span> ⎋</button>
   </div>
 </header>
 
@@ -378,8 +419,10 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
 </dialog>
 
 <script>
-(() => {
+// Main app — started by the auth script below once a user is signed in.
+window.startApp = (user) => {
   "use strict";
+  const NS = `suno.${user.id}.`;
 
   const API = "https://api.sunoapi.org/api/v1";
   // callBackUrl is required by the API. We poll for results instead, so this
@@ -408,9 +451,9 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
     del(k) { try { localStorage.removeItem(k); } catch {} },
   };
 
-  let apiKey = store.get("suno.key", "");
-  let library = store.get("suno.library", []);
-  let mode = store.get("suno.mode", "simple");
+  let apiKey = store.get(NS + "key", "");
+  let library = store.get(NS + "library", []);
+  let mode = store.get(NS + "mode", "simple");
 
   // ---------- helpers ----------
   function h(tag, attrs = {}, ...kids) {
@@ -441,7 +484,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
     toastTimer = setTimeout(() => t.remove(), 3200);
   }
   function showErr(el, msg) { el.textContent = msg; el.classList.toggle("hidden", !msg); }
-  const save = () => store.set("suno.library", library);
+  const save = () => store.set(NS + "library", library);
 
   // ---------- API ----------
   async function api(path, { method = "GET", body, key = apiKey } = {}) {
@@ -488,7 +531,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
     $("keyToggle").textContent = show ? "Hide" : "Show";
   };
   $("keyClear").onclick = () => {
-    apiKey = ""; store.del("suno.key"); renderKeyState(); $("keyDialog").close(); toast("API key removed from this browser");
+    apiKey = ""; store.del(NS + "key"); renderKeyState(); $("keyDialog").close(); toast("API key removed from this browser");
   };
   $("keyForm").onsubmit = async (e) => {
     e.preventDefault();
@@ -497,7 +540,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
     $("keySave").disabled = true; $("keySave").textContent = "Verifying…";
     try {
       const credits = await api("/generate/credit", { key });
-      apiKey = key; store.set("suno.key", key);
+      apiKey = key; store.set(NS + "key", key);
       setCredits(credits);
       renderKeyState();
       $("keyDialog").close();
@@ -525,7 +568,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
 
   // ---------- composer ----------
   function setMode(m) {
-    mode = m; store.set("suno.mode", m);
+    mode = m; store.set(NS + "mode", m);
     document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.mode === m)));
     document.querySelectorAll("[data-show]").forEach((el) => el.classList.toggle("hidden", el.dataset.show !== m));
     showErr($("formError"), "");
@@ -819,6 +862,102 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
   renderLibrary();
   refreshCredits();
   resumePolling();
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(() => {
+  "use strict";
+  // Supabase project settings. The publishable (anon) key is designed to be
+  // public — access is controlled by Supabase Auth and row-level security.
+  const SUPABASE_URL = "https://tijxtnmrdguholjnyglp.supabase.co";
+  const SUPABASE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+
+  const $ = (id) => document.getElementById(id);
+  const msg = (el, text) => { el.textContent = text || ""; el.classList.toggle("hidden", !text); };
+  let view = "signin"; // signin | signup | forgot | recovery
+  let started = false;
+
+  const VIEWS = {
+    signin:   { title: "Sign in", sub: "Welcome back — sign in to make music.", submit: "Sign in", email: true, pass: true, switch: "Create an account", forgot: true },
+    signup:   { title: "Create your account", sub: "Sign up with your email to start generating songs.", submit: "Create account", email: true, pass: true, switch: "I already have an account", forgot: false },
+    forgot:   { title: "Reset password", sub: "We'll email you a link to set a new password.", submit: "Send reset link", email: true, pass: false, switch: "Back to sign in", forgot: false },
+    recovery: { title: "Set a new password", sub: "Choose a new password for your account.", submit: "Update password", email: false, pass: true, switch: "Back to sign in", forgot: false },
+  };
+  function setView(v) {
+    view = v; const c = VIEWS[v];
+    $("authTitle").textContent = c.title; $("authSub").textContent = c.sub; $("authSubmit").textContent = c.submit;
+    $("authEmailField").classList.toggle("hidden", !c.email);
+    $("authPassField").classList.toggle("hidden", !c.pass);
+    $("authPass").autocomplete = v === "signin" ? "current-password" : "new-password";
+    $("authSwitch").textContent = c.switch;
+    $("authForgot").classList.toggle("hidden", !c.forgot);
+    msg($("authError")); msg($("authOk"));
+  }
+  $("authSwitch").onclick = () => setView(view === "signin" ? "signup" : "signin");
+  $("authForgot").onclick = () => setView("forgot");
+
+  if (!window.supabase || SUPABASE_KEY.startsWith("YOUR_")) {
+    msg($("authError"), "Supabase isn't configured yet — add the project's publishable key in index.html.");
+    $("authSubmit").disabled = true;
+    return;
+  }
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const redirectTo = location.origin + location.pathname;
+
+  function signedIn(user) {
+    document.body.classList.remove("signed-out");
+    $("userEmail").textContent = user.email;
+    if (!started) { started = true; window.startApp(user); }
+  }
+  function signedOut() {
+    // Reload to drop the previous user's in-memory state.
+    if (started) return location.reload();
+    document.body.classList.add("signed-out");
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") { document.body.classList.add("signed-out"); return setView("recovery"); }
+    if (view === "recovery") return;
+    session?.user ? signedIn(session.user) : signedOut();
+  });
+
+  $("signOutBtn").onclick = () => sb.auth.signOut();
+
+  $("authForm").onsubmit = async (e) => {
+    e.preventDefault();
+    msg($("authError")); msg($("authOk"));
+    const email = $("authEmail").value.trim();
+    const password = $("authPass").value;
+    if (VIEWS[view].email && !/^\S+@\S+\.\S+$/.test(email)) return msg($("authError"), "Enter a valid email address.");
+    if (VIEWS[view].pass && password.length < 6) return msg($("authError"), "Password must be at least 6 characters.");
+    const btn = $("authSubmit"); const label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Please wait…";
+    try {
+      if (view === "signin") {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else if (view === "signup") {
+        const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } });
+        if (error) throw error;
+        if (!data.session) { setView("signin"); msg($("authOk"), `Check ${email} for a confirmation link, then sign in.`); }
+      } else if (view === "forgot") {
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+        if (error) throw error;
+        msg($("authOk"), "If that email has an account, a reset link is on its way.");
+      } else if (view === "recovery") {
+        const { data, error } = await sb.auth.updateUser({ password });
+        if (error) throw error;
+        history.replaceState(null, "", redirectTo);
+        setView("signin");
+        signedIn(data.user);
+      }
+    } catch (err) {
+      msg($("authError"), err.message || "Something went wrong. Try again.");
+    } finally {
+      btn.disabled = false; if (btn.textContent === "Please wait…") btn.textContent = label;
+    }
+  };
 })();
 </script>
 </body>
