@@ -16,9 +16,9 @@ The app is behind a Supabase email + password login: sign up, email confirmation
 Each user's API key and library are stored separately in the browser, keyed by their Supabase user ID.
 
 Setup (one time):
-1. In the Supabase dashboard, restore the project `tijxtnmrdguholjnyglp` if it's paused.
-2. Go to **Project Settings → API Keys**, copy the **publishable** key (`sb_publishable_…`), and paste it into
-   `SUPABASE_KEY` near the bottom of `index.html`. This key is meant to be public.
+1. In the Supabase dashboard, open the project `Testdefault` (`prnyxjkfmyowsjjvsqcw`).
+2. The project's URL and **publishable** key (`sb_publishable_…`) are already set in `index.html`
+   (`SUPABASE_URL` / `SUPABASE_KEY`). The publishable key is meant to be public.
 3. Go to **Authentication → URL Configuration**, set **Site URL** to your Netlify URL, and add it under **Redirect URLs**.
    This makes confirmation and reset emails link back to the app.
 

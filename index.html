@@ -870,8 +870,8 @@ window.startApp = (user) => {
   "use strict";
   // Supabase project settings. The publishable (anon) key is designed to be
   // public — access is controlled by Supabase Auth and row-level security.
-  const SUPABASE_URL = "https://tijxtnmrdguholjnyglp.supabase.co";
-  const SUPABASE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+  const SUPABASE_URL = "https://prnyxjkfmyowsjjvsqcw.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_pvoPTaj0wasrMQS421t7iQ_Mbg9A32K";
 
   const $ = (id) => document.getElementById(id);
   const msg = (el, text) => { el.textContent = text || ""; el.classList.toggle("hidden", !text); };
@@ -898,7 +898,9 @@ window.startApp = (user) => {
   $("authForgot").onclick = () => setView("forgot");
 
   if (!window.supabase || SUPABASE_KEY.startsWith("YOUR_")) {
-    msg($("authError"), "Supabase isn't configured yet — add the project's publishable key in index.html.");
+    msg($("authError"), !window.supabase
+      ? "Couldn't load the sign-in service. Check your connection and refresh."
+      : "Supabase isn't configured yet — add the project's publishable key in index.html.");
     $("authSubmit").disabled = true;
     return;
   }
