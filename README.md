@@ -22,6 +22,16 @@ Setup (one time):
 3. Go to **Authentication → URL Configuration**, set **Site URL** to your Netlify URL, and add it under **Redirect URLs**.
    This makes confirmation and reset emails link back to the app.
 
+## User profiles
+Every account gets a profile row created automatically at sign-up. On the first visit the app asks the user to finish it.
+Users can set a display name, a unique `@username`, a bio, favorite genres and a profile photo.
+Favorite genres appear first in the composer's genre chips. To edit a profile, click your avatar in the header. Sign out is also there.
+
+The database objects are in `supabase/migrations/` and are already applied to the Testdefault project:
+- `public.profiles`, protected by row-level security: signed-in users can read profiles, and each user can only change their own.
+- An `on_auth_user_created` trigger that creates the profile row.
+- A public `avatars` storage bucket (2 MB images). Each user can only write to their own folder.
+
 ## API key
 Each user clicks **Add API key** and pastes their own key from <https://sunoapi.org/api-key>.
 The app checks the key against the credits endpoint, keeps it only in that browser's `localStorage`,

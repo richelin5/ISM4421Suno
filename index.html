@@ -176,6 +176,22 @@ body:not(.signed-out) #authScreen { display: none; }
 .alert.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); background: color-mix(in srgb, var(--ok) 8%, transparent); }
 .user-email { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 600px) { .user-email { display: none; } }
+/* Profile */
+.profile-pill { padding: 3px 12px 3px 3px; }
+.avatar { width: 72px; height: 72px; border-radius: 50%; flex: none; display: grid; place-items: center; overflow: hidden;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-weight: 700; font-size: 26px; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar.sm { width: 28px; height: 28px; font-size: 12px; }
+.avatar-row { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.avatar-row .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.input-prefix { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.input-prefix span { padding-left: 12px; color: var(--muted); }
+.input-prefix input { border: 0; background: transparent; padding-left: 2px; }
+.input-prefix:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.input-prefix input:focus { box-shadow: none; }
+#profileDialog { width: min(520px, calc(100vw - 32px)); }
+#profileDialog form { max-height: calc(100vh - 48px); overflow: auto; }
+.readonly { color: var(--muted); font-size: 13px; padding: 2px 0; }
 footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16px 32px; }
 </style>
 </head>
@@ -215,7 +231,9 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
       <span class="dot" id="creditsDot"></span><span id="creditsText">Credits —</span>
     </button>
     <button class="pill" id="keyBtn">🔑 <span id="keyBtnText">Add API key</span></button>
-    <button class="pill" id="signOutBtn" title="Sign out"><span class="user-email" id="userEmail"></span> ⎋</button>
+    <button class="pill profile-pill" id="profileBtn" title="Your profile">
+      <span class="avatar sm" id="headerAvatar"></span><span class="user-email" id="userEmail"></span>
+    </button>
   </div>
 </header>
 
@@ -361,6 +379,54 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16
 <footer>Audio files are hosted by the API for about 14 days. Download anything you want to keep.</footer>
 
 <!-- API key dialog -->
+<!-- Profile dialog (Supabase profiles table + avatars bucket) -->
+<dialog id="profileDialog">
+  <form id="profileForm" novalidate>
+    <h2 id="profileTitle">Your profile</h2>
+    <p class="sub" id="profileSub">This is how you appear in Suno Studio.</p>
+    <div class="avatar-row">
+      <div class="avatar" id="profileAvatar"></div>
+      <div>
+        <div class="actions">
+          <label class="btn sm" for="avatarFile" style="cursor:pointer">Upload photo</label>
+          <button type="button" class="btn sm ghost danger hidden" id="avatarRemove">Remove</button>
+        </div>
+        <input type="file" id="avatarFile" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+        <div class="hint">PNG, JPG, WebP or GIF · up to 2 MB</div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="pfDisplayName">Display name <span class="count" data-pcount="pfDisplayName">0/60</span></label>
+      <input type="text" id="pfDisplayName" maxlength="60" placeholder="Your name or artist name">
+    </div>
+    <div class="field">
+      <label for="pfUsername">Username</label>
+      <div class="input-prefix"><span>@</span><input type="text" id="pfUsername" maxlength="24" autocomplete="off" spellcheck="false" placeholder="yourname"></div>
+      <div class="hint">3–24 characters: lowercase letters, numbers, underscores.</div>
+    </div>
+    <div class="field">
+      <label for="pfBio">Bio <span class="count" data-pcount="pfBio">0/280</span></label>
+      <textarea id="pfBio" maxlength="280" placeholder="What kind of music do you make?" style="min-height:70px"></textarea>
+    </div>
+    <div class="field">
+      <div class="label">Favorite genres</div>
+      <div class="chips" id="pfGenres" style="margin-top:0"></div>
+      <div class="hint">Your favorites appear first in the composer's genre chips.</div>
+    </div>
+    <div class="field">
+      <div class="label">Email</div>
+      <div class="readonly" id="pfEmail"></div>
+    </div>
+    <div class="alert err hidden" id="profileError" role="alert"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn ghost danger" id="signOutBtn">Sign out</button>
+      <div class="spacer"></div>
+      <button type="button" class="btn" id="profileCancel">Close</button>
+      <button type="submit" class="btn primary" id="profileSave">Save profile</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="keyDialog">
   <form method="dialog" id="keyForm">
     <h2>Your API key</h2>
@@ -442,7 +508,7 @@ window.startApp = (user) => {
     405: "Rate limit exceeded", 413: "Prompt or lyrics too long", 429: "Insufficient credits",
     430: "Too many requests — slow down and try again", 455: "Suno API is under maintenance", 500: "Suno API server error",
   };
-  const GENRES = ["Pop", "Hip-hop", "R&B", "Rock", "Lo-fi", "EDM", "Afrobeats", "Latin", "Country", "Jazz", "Cinematic", "Acoustic"];
+  const BASE_GENRES = ["Pop", "Hip-hop", "R&B", "Rock", "Lo-fi", "EDM", "Afrobeats", "Latin", "Country", "Jazz", "Cinematic", "Acoustic"];
 
   const $ = (id) => document.getElementById(id);
   const store = {
@@ -583,6 +649,12 @@ window.startApp = (user) => {
 
   // Genre chips toggle entries in the comma-separated style field.
   const styleParts = () => $("style").value.split(",").map((s) => s.trim()).filter(Boolean);
+  // Favourite genres from the user's profile lead the list.
+  let GENRES = BASE_GENRES;
+  window.setFavoriteGenres = (favs = []) => {
+    GENRES = [...favs, ...BASE_GENRES.filter((g) => !favs.includes(g))];
+    renderChips();
+  };
   function renderChips() {
     const parts = styleParts().map((s) => s.toLowerCase());
     $("styleChips").replaceChildren(...GENRES.map((g) =>
@@ -855,6 +927,8 @@ window.startApp = (user) => {
     }
   };
 
+  window.addEventListener("app:toast", (e) => toast(e.detail));
+
   // ---------- init ----------
   setMode(mode);
   syncInstrumental();
@@ -910,7 +984,7 @@ window.startApp = (user) => {
   function signedIn(user) {
     document.body.classList.remove("signed-out");
     $("userEmail").textContent = user.email;
-    if (!started) { started = true; window.startApp(user); }
+    if (!started) { started = true; window.startApp(user); loadProfile(user); }
   }
   function signedOut() {
     // Reload to drop the previous user's in-memory state.
@@ -924,7 +998,143 @@ window.startApp = (user) => {
     session?.user ? signedIn(session.user) : signedOut();
   });
 
-  $("signOutBtn").onclick = () => sb.auth.signOut();
+  $("signOutBtn").onclick = () => { $("profileDialog").close(); sb.auth.signOut(); };
+
+  // ---------- profile ----------
+  const GENRES = ["Pop", "Hip-hop", "R&B", "Rock", "Lo-fi", "EDM", "Afrobeats", "Latin", "Country", "Jazz", "Cinematic", "Acoustic", "Classical", "Gospel", "Reggae", "Metal"];
+  let me = null;        // auth user
+  let profile = null;   // row from public.profiles
+  let draftGenres = [];
+
+  function renderAvatar(el, p) {
+    const name = p?.display_name || p?.username || me?.email || "?";
+    if (p?.avatar_url) el.replaceChildren(Object.assign(document.createElement("img"), { src: p.avatar_url, alt: "" }));
+    else el.textContent = name.trim().charAt(0).toUpperCase();
+  }
+  function renderHeader() {
+    renderAvatar($("headerAvatar"), profile);
+    $("userEmail").textContent = profile?.display_name || (profile?.username ? "@" + profile.username : me.email);
+    window.setFavoriteGenres?.(profile?.favorite_genres || []);
+  }
+  function renderGenreChips() {
+    $("pfGenres").replaceChildren(...GENRES.map((g) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = g;
+      b.className = "chip" + (draftGenres.includes(g) ? " on" : "");
+      b.onclick = () => {
+        draftGenres = draftGenres.includes(g) ? draftGenres.filter((x) => x !== g) : [...draftGenres, g].slice(0, 12);
+        renderGenreChips();
+      };
+      return b;
+    }));
+  }
+  function countFor(id) {
+    const c = document.querySelector(`[data-pcount="${id}"]`);
+    if (c) c.textContent = `${$(id).value.length}/${$(id).maxLength}`;
+  }
+  ["pfDisplayName", "pfBio"].forEach((id) => $(id).addEventListener("input", () => countFor(id)));
+  $("pfUsername").addEventListener("input", () => {
+    const el = $("pfUsername"); const v = el.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+    if (v !== el.value) el.value = v;
+  });
+
+  async function loadProfile(user) {
+    me = user;
+    let { data, error } = await sb.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    if (!error && !data) {
+      // Safety net if the sign-up trigger didn't run (e.g. users created before it existed).
+      ({ data, error } = await sb.from("profiles").insert({ id: user.id, display_name: user.email.split("@")[0].slice(0, 60) }).select().single());
+    }
+    if (error) { console.error(error); return renderHeader(); }
+    profile = data;
+    renderHeader();
+    if (!profile.username) openProfile(true); // first visit: invite them to finish their profile
+  }
+
+  function openProfile(onboarding = false) {
+    if (!me) return;
+    $("profileTitle").textContent = onboarding ? "Create your profile" : "Your profile";
+    $("profileSub").textContent = onboarding ? "Pick a username and tell us about your music. You can change this anytime." : "This is how you appear in Suno Studio.";
+    $("profileCancel").textContent = onboarding ? "Skip for now" : "Close";
+    $("pfDisplayName").value = profile?.display_name || "";
+    $("pfUsername").value = profile?.username || "";
+    $("pfBio").value = profile?.bio || "";
+    $("pfEmail").textContent = me.email;
+    draftGenres = [...(profile?.favorite_genres || [])];
+    ["pfDisplayName", "pfBio"].forEach(countFor);
+    renderGenreChips();
+    renderAvatar($("profileAvatar"), profile);
+    $("avatarRemove").classList.toggle("hidden", !profile?.avatar_url);
+    msg($("profileError"));
+    if (!$("profileDialog").open) $("profileDialog").showModal();
+  }
+  $("profileBtn").onclick = () => openProfile(false);
+  $("profileCancel").onclick = () => $("profileDialog").close();
+
+  $("profileForm").onsubmit = async (e) => {
+    e.preventDefault();
+    msg($("profileError"));
+    const username = $("pfUsername").value.trim();
+    if (username && !/^[a-z0-9_]{3,24}$/.test(username)) return msg($("profileError"), "Username must be 3–24 lowercase letters, numbers or underscores.");
+    const changes = {
+      display_name: $("pfDisplayName").value.trim() || null,
+      username: username || null,
+      bio: $("pfBio").value.trim() || null,
+      favorite_genres: draftGenres,
+    };
+    const btn = $("profileSave"); btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      const { data, error } = await sb.from("profiles").update(changes).eq("id", me.id).select().single();
+      if (error) throw error.code === "23505" ? new Error(`@${username} is already taken — try another.`) : error;
+      profile = data;
+      renderHeader();
+      $("profileDialog").close();
+      window.dispatchEvent(new CustomEvent("app:toast", { detail: "Profile saved" }));
+    } catch (err) {
+      msg($("profileError"), err.message || "Couldn't save your profile.");
+    } finally {
+      btn.disabled = false; btn.textContent = "Save profile";
+    }
+  };
+
+  $("avatarFile").onchange = async () => {
+    const file = $("avatarFile").files[0];
+    $("avatarFile").value = "";
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) return msg($("profileError"), "That image is over 2 MB.");
+    msg($("profileError"));
+    const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const path = `${me.id}/avatar-${Date.now()}.${ext}`;
+    $("profileAvatar").style.opacity = ".5";
+    try {
+      const up = await sb.storage.from("avatars").upload(path, file, { contentType: file.type, upsert: true });
+      if (up.error) throw up.error;
+      const url = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+      const { data, error } = await sb.from("profiles").update({ avatar_url: url }).eq("id", me.id).select().single();
+      if (error) throw error;
+      await removeOldAvatars(path);
+      profile = data;
+      renderAvatar($("profileAvatar"), profile); renderHeader();
+      $("avatarRemove").classList.remove("hidden");
+    } catch (err) {
+      msg($("profileError"), err.message || "Upload failed.");
+    } finally {
+      $("profileAvatar").style.opacity = "";
+    }
+  };
+  $("avatarRemove").onclick = async () => {
+    const { data, error } = await sb.from("profiles").update({ avatar_url: null }).eq("id", me.id).select().single();
+    if (error) return msg($("profileError"), error.message);
+    await removeOldAvatars(null);
+    profile = data;
+    renderAvatar($("profileAvatar"), profile); renderHeader();
+    $("avatarRemove").classList.add("hidden");
+  };
+  async function removeOldAvatars(keepPath) {
+    const { data } = await sb.storage.from("avatars").list(me.id);
+    const stale = (data || []).map((f) => `${me.id}/${f.name}`).filter((p) => p !== keepPath);
+    if (stale.length) await sb.storage.from("avatars").remove(stale);
+  }
 
   $("authForm").onsubmit = async (e) => {
     e.preventDefault();
