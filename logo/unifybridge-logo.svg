@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="80 30 360 340" width="360" height="340">
+  <rect x="80" y="30" width="360" height="340" fill="#ffffff"/>
+  <!-- Mark: an inverted "U" that forms a bridge arch; navy and teal halves unite at a gold keystone -->
+  <g fill="none" stroke-width="30">
+    <path d="M150 230 V170 A110 110 0 0 1 262 60" stroke="#1B2A49"/>
+    <path d="M370 230 V170 A110 110 0 0 0 258 60" stroke="#1F8A8A"/>
+  </g>
+  <circle cx="260" cy="60" r="19" fill="#C9A227" stroke="#ffffff" stroke-width="5"/>
+  <rect x="115" y="240" width="290" height="10" rx="5" fill="#1B2A49"/>
+  <text x="260" y="310" text-anchor="middle" font-family="Montserrat, Arial, Helvetica, sans-serif" font-weight="800" font-size="40" letter-spacing="3"><tspan fill="#1B2A49">UNIFY</tspan><tspan fill="#1F8A8A">BRIDGE</tspan></text>
+  <text x="260" y="345" text-anchor="middle" font-family="Montserrat, Arial, Helvetica, sans-serif" font-weight="600" font-size="15" letter-spacing="7" fill="#555555">FINANCIAL GROUP</text>
+</svg>
